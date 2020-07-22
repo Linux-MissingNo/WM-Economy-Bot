@@ -31,3 +31,9 @@ Please note that if any of the arguments are missing the bot will print a warnin
 associated feature
 
 To make the bot respond to all unread messages, simply run `python3 src/bot.py`.
+
+## Rules For Contribution
+
+All people who wish to contribute to the source must first consider wether there changes would be valued by the base repository [taubot](https://github.com/jonathanvdc/taubot)
+if you believe that the changes would be of value there make a pull request there and we'll merge the changes, if you do not believe they will be accepted
+by taubots development team but would work with Weekly Dictator make a pr here
