@@ -1,6 +1,6 @@
-# taubot
+# WD Economy Bot
 
-This is a Reddit/Discord economy bot implementation in Python.
+This is a fork of [taubot](https://github.com/jonathanvdc/taubot)
 
 ## Dependencies
 
