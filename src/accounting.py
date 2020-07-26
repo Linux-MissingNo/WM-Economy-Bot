@@ -515,7 +515,7 @@ class InMemoryAccount(Account):
         self.shot = False
         self.comes_to_life_at = 0
         self.guns = 0
-        self.balance = 0
+        self.balance = 25
         self.frozen = False
         self.public = False
         self.auth = Authorization.CITIZEN
