@@ -117,36 +117,55 @@ def _is_signed_by(
 
 # COMMANDS
 def set_gun_price(author_id, new_val, server):
-    author = server.get_account(author_id)
+    author = _get_account(author_id, server)
     _assert_authorized(author, None)
     return server.set_gun_price(author_id, new_val)
 
 
+def set_vest_price(author_id, new_val, server):
+    author = _get_account(author_id, server)
+    _assert_authorized(author, None)
+    return server.set_vest_price(author_id, new_val)
+
+
 def shoot_account(author_id, shooter_id, victim_id, server):
-    shooter = server.get_account(shooter_id)
+    shooter = _get_account(shooter_id, server)
 
     if shooter.guns <= 0:
         raise ValueError("Not enough guns")
-    try:
-        victim = server.get_account(victim_id)
-    except:
-        raise ValueError("Victim does not have an account")
-    print(shooter.guns)
-    server.shoot_account(author_id, shooter, victim)
+
+    victim = _get_account(victim_id, server)
+    result = server.shoot_account(author_id, shooter, victim)
+    print(result)
+    return result
 
 
 def buy_gun(author_id, server):
     try:
         return server.buy_gun(author_id)
-    except Exception:
-        raise ValueError("Not enough funds")
+    except Exception as e:
+        raise ValueError(e)
+
+
+def buy_vest(author_id, server):
+    try:
+        return server.buy_vest(author_id)
+    except Exception as e:
+        raise ValueError(e)
 
 
 def gun_balance(author_id, account_id, server):
-    author = server.get_account(author_id)
-    account = server.get_account(account_id)
+    author = _get_account(author_id, server)
+    account = _get_account(account_id, server)
     _assert_authorized(author, account)
     return account.guns
+
+
+def vest_balance(author_id, account_id, server):
+    author = _get_account(author_id, server)
+    account = _get_account(account_id, server)
+    _assert_authorized(author, account)
+    return account.has_vest
 
 
 def name(

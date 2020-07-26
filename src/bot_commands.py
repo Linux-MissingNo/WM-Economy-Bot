@@ -696,9 +696,13 @@ _add_command(
 
 def _shoot_account(author: Union[AccountId, str], victim: Union[AccountId, str],
                    rest: str, server: Server):
-    commands.shoot_account(author, author, victim, server)
-    print("I got far")
-    return {"response": f"Successfully shot {victim}", "to_be_muted": victim}
+    was_shot = commands.shoot_account(author, author, victim, server)
+    print(was_shot)
+    if was_shot:
+        return {"response": f"Successfully shot {victim}", "to_be_muted": victim}
+    else:
+        return f"You tried to shoot {victim} but they had a bullet-proof vest that protected them.\n" \
+               f"Because of your shot, their vest has been damaged and they are now vulnerable."
 
 
 _add_command(
@@ -726,6 +730,21 @@ _add_command(
 )
 
 
+def _set_vest_price(author: Union[AccountId, str], price: Fraction, rest, server):
+    commands.set_vest_price(author, price, server)
+    return f"Set price to {price}"
+
+
+_add_command(
+    'set-vest-price',
+    {
+        'price': (Fraction, "price for new vests")
+    },
+    _set_vest_price,
+    "sets the price of a vest"
+)
+
+
 def _buy_gun(author: Union[AccountId, str], rest, server):
     commands.buy_gun(author, server)
     return "You bought a gun"
@@ -736,6 +755,19 @@ _add_command(
     {},
     _buy_gun,
     "buys a gun"
+)
+
+
+def _buy_vest(author: Union[AccountId, str], rest, server):
+    commands.buy_vest(author, server)
+    return "You bought a vest"
+
+
+_add_command(
+    "buy-vest",
+    {},
+    _buy_vest,
+    "buys a vest"
 )
 
 
@@ -757,6 +789,27 @@ _add_command(
     "displays how many guns you own"
 )
 _alias("gun-balance", "gun-bal")
+
+
+def _vest_balance(author: Union[AccountId, str], rest, server):
+    account = author
+    if rest != "":
+        account = parse_account_id(rest.split()[0])
+    has_vest = commands.vest_balance(author, account, server)
+    if has_vest:
+        return f"{account} has a vest"
+    else:
+        return f"{account} does not have a vest"
+
+
+_add_command(
+    "vest-balance",
+    {},
+    _vest_balance,
+    "displays wether or not you have a vest"
+)
+_alias("vest-balance", "vest-bal")
+
 
 def _authorize(
         author: Union[AccountId, str],

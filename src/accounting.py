@@ -325,6 +325,7 @@ class InMemoryServer(Server):
 
     def __init__(self):
         self.gun_price = Fraction(500)
+        self.vest_price = Fraction(200)
         self.shot_accounts = []
         self.accounts = {}
         self.inv_accounts = defaultdict(list)
@@ -369,14 +370,35 @@ class InMemoryServer(Server):
         else:
             raise Exception("Not Enough funds")
 
+    def buy_vest(self, author: AccountId):
+        author_acc = self.get_account(author)
+        if author_acc.has_vest:
+            raise Exception("You already have a vest")
+        if self.can_transfer(author_acc, self.get_government_account(), self.vest_price):
+            author_acc.balance -= self.vest_price
+            self.get_government_account().balance += self.vest_price
+            author_acc.has_vest = True
+        else:
+            raise Exception("Not Enough funds")
+
     def shoot_account(self, author: AccountId, shooter: Account, victim: Account, timestamp=None):
-        assert shooter.guns > 0
+        if shooter.guns < 0:
+            raise Exception("Not enough guns")
         shooter.guns -= 1
+        if victim.has_vest:
+            victim.has_vest = False
+            print("False")
+            return False
         victim.shoot(timestamp=timestamp if timestamp is not None else time.time())
         self.shot_accounts.append(victim)
+        print("True")
+        return True
 
     def set_gun_price(self, author: AccountId, price):
         self.gun_price = Fraction(price)
+
+    def set_vest_price(self, author: AccountId, price):
+        self.vest_price = Fraction(price)
 
     def add_account_alias(self, account: Account, alias_id: AccountId):
         """Associates an additional ID with an account."""
@@ -516,6 +538,7 @@ class InMemoryAccount(Account):
         self.comes_to_life_at = 0
         self.guns = 0
         self.balance = 25
+        self.has_vest = False
         self.frozen = False
         self.public = False
         self.auth = Authorization.CITIZEN
@@ -953,6 +976,8 @@ class LedgerServer(InMemoryServer):
                 super().set_gun_price(parse_account_id(elems[1]), int(elems[2]))
             elif cmd == "buy-gun":
                 super().buy_gun(parse_account_id(elems[1]))
+            elif cmd == "buy-vest":
+                super().buy_vest(parse_account_id(elems[1]))
             elif cmd == 'toggle-auto-tax':
                 self.get_tax_object().toggle_auto_tax()
             elif cmd == 'force-tax':
@@ -991,13 +1016,14 @@ class LedgerServer(InMemoryServer):
             alias_id)
 
     def shoot_account(self, author: AccountId, shooter: Account, victim: Account, timestamp=None):
-        super().shoot_account(author, shooter, victim, timestamp)
+        result = super().shoot_account(author, shooter, victim, timestamp)
         self._ledger_write(
             'shoot-account',
             author,
             self.get_account_id(shooter),
             self.get_account_id(victim)
         )
+        return result
 
     def set_gun_price(self, author: AccountId, price):
         super().set_gun_price(author, price)
@@ -1011,6 +1037,13 @@ class LedgerServer(InMemoryServer):
         super().buy_gun(author)
         self._ledger_write(
             "buy-gun",
+            author
+        )
+
+    def buy_vest(self, author: AccountId):
+        super().buy_vest(author)
+        self._ledger_write(
+            "buy-vest",
             author
         )
 
