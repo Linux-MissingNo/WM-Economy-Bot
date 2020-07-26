@@ -141,6 +141,14 @@ def buy_gun(author_id, server):
     except Exception:
         raise ValueError("Not enough funds")
 
+
+def gun_balance(author_id, account_id, server):
+    author = server.get_account(author_id)
+    account = server.get_account(account_id)
+    _assert_authorized(author, account)
+    return account.guns
+
+
 def name(
         author_id: Union[AccountId, str],
         server: Server):

@@ -725,9 +725,11 @@ _add_command(
     "Sets the price of a gun"
 )
 
+
 def _buy_gun(author: Union[AccountId, str], rest, server):
     commands.buy_gun(author, server)
     return "You bought a gun"
+
 
 _add_command(
     "buy-gun",
@@ -735,6 +737,26 @@ _add_command(
     _buy_gun,
     "buys a gun"
 )
+
+
+def _gun_balance(author: Union[AccountId, str], rest, server):
+    account = author
+    if rest != "":
+        account = parse_account_id(rest.split()[0])
+    bal = commands.gun_balance(author, account, server)
+    if account == author:
+        return f"your gun-balance is {bal}"
+    else:
+        return f"{account}'s gun-balance is {bal}"
+
+
+_add_command(
+    "gun-balance",
+    {},
+    _gun_balance,
+    "displays how many guns you own"
+)
+_alias("gun-balance", "gun-bal")
 
 def _authorize(
         author: Union[AccountId, str],

@@ -365,7 +365,9 @@ class InMemoryServer(Server):
         if self.can_transfer(author_acc, self.get_government_account(), self.gun_price):
             author_acc.balance -= self.gun_price
             self.get_government_account().balance += self.gun_price
-        author_acc.guns += 1
+            author_acc.guns += 1
+        else:
+            raise Exception("Not Enough funds")
 
     def shoot_account(self, author: AccountId, shooter: Account, victim: Account, timestamp=None):
         assert shooter.guns > 0

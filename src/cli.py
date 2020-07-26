@@ -12,6 +12,7 @@ _name = "taubot CLI"
 def ps1(acc='taubot'):
     return f'{acc}> '
 
+cant_run = ["shoot"]
 
 def cli(fp, acc):
     with LedgerServer(fp) as server:
@@ -30,8 +31,9 @@ def cli(fp, acc):
 
             if cmd == '':
                 continue
-
-            if cmd.startswith('login'):
+            if cmd.split()[0] in cant_run:
+                print(f"Can't execute {cmd.split()[0]} from cli")
+            elif cmd.startswith('login'):
                 split = cmd.split()
                 acc_id = parse_account_id(split[1])
                 acc = acc_id
@@ -53,8 +55,10 @@ def parse(cmd, account, fp):
         server = LedgerServer(fp)
         cmds = cmd.split(';')
         for cmd in cmds:
-
-            print(run_command(acc, cmd, server))
+            if cmd.startswith("shoot"):
+                print("Can't execute shoot from cli")
+            else:
+                print(run_command(acc, cmd, server))
         server.close()
     elif cmd is None:
         cli(fp, account)
