@@ -747,7 +747,7 @@ def _gun_balance(author: Union[AccountId, str], rest, server):
     if account == author:
         return f"your gun-balance is {bal}"
     else:
-        return f"{account}'s gun-balance is {bal}"
+        return f"{account} 's gun-balance is {bal}"
 
 
 _add_command(
