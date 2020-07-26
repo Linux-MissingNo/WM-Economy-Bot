@@ -88,6 +88,10 @@ async def message_loop(reddit, server):
         await asyncio.sleep(5)
 
 
+
+
+
+
 async def tick_loop(server):
     """The bot's tick loop, which looks at the clock every now and then and notifies the
        server when a tick has elapsed."""
@@ -96,6 +100,13 @@ async def tick_loop(server):
 
     while True:
         # Notify the server that one or more ticks have elapsed if necessary.
+        for account in server.shot_accounts:
+            if not discord_client.is_ready():
+                break
+            id = int(server.get_account_id(account).strip("discord/"))
+            if account.should_be_alive():
+                await unmute_account(id)
+                server.shot_accounts.remove(account)
         while int(time.time() - server.last_tick_timestamp) > tick_duration:
             server.notify_tick_elapsed(server.last_tick_timestamp + tick_duration)
 
@@ -177,6 +188,7 @@ class DiscordMessage(object):
 
 
 if __name__ == '__main__':
+
     print("[Main] Launching")
 
     required_reddit_keys = [
@@ -210,6 +222,18 @@ if __name__ == '__main__':
         print_bad("prefix")
         config_prefix = None
 
+    try:
+        primary_guild_id = int(config["guild_id"])
+        muted_role_id = int(config["role_id"])
+    except Exception as e:
+        print_bad("guild deets")
+        primary_guild_id = None
+        muted_role_id = None
+
+    @discord_client.event
+    async def on_ready():
+        global primary_guild
+        primary_guild = discord_client.get_guild(primary_guild_id) if primary_guild_id is not None else None
 
     @discord_client.event
     async def on_reaction_add(reaction, user):
@@ -240,7 +264,6 @@ if __name__ == '__main__':
             except discord.errors.HTTPException:
                 pass
 
-
     @discord_client.event
     async def on_message(message: discord.Message):
         if message.author == discord_client.user:
@@ -262,11 +285,22 @@ if __name__ == '__main__':
         if content.lower().startswith(prefixes):  # Checking all messages that start with the prefix.
             prefix = [prefix for prefix in prefixes if content.lower().startswith(prefix)][0]
             command_content = content[len(prefix):].lstrip()
-            response = discord_postprocess(
-                run_command(
+            response = run_command(
                     DiscordAccountId(str(message.author.id)),
                     command_content,
-                    server))
+                    server)
+
+            if isinstance(response, dict):
+                params = response
+                response = params["response"]
+                if "to_be_muted" in params:
+                    user_id = int(params["to_be_muted"].discord_id)
+                    guild = primary_guild
+                    member = guild.get_member(user_id)
+                    role = guild.get_role(muted_role_id)
+                    if role not in member.roles:
+                        await member.add_roles(role)
+            response = discord_postprocess(response)
 
             chunks = split_into_chunks(response.encode('utf-8'), 1024)
 
@@ -276,6 +310,16 @@ if __name__ == '__main__':
 
             await message_obj.send(message.channel)
             messages[message_obj.message.id] = message_obj
+
+
+    async def unmute_account(id):
+        assert isinstance(muted_role_id, int)
+        guild = primary_guild
+        assert isinstance(guild, discord.Guild)
+        member = guild.get_member(int(id))
+        role = guild.get_role(muted_role_id)
+        if role in member.roles:
+            await member.remove_roles(role)
 
 
     ledger_path = config['ledger-path'] if 'ledger-path' in config else 'ledger.txt'

@@ -172,8 +172,6 @@ class Account(object):
         raise NotImplementedError()
 
 
-
-
 class RecurringTransfer(object):
     """A recurring transfer."""
 
@@ -326,6 +324,8 @@ class InMemoryServer(Server):
        (persistent) servers."""
 
     def __init__(self):
+        self.gun_price = Fraction(500)
+        self.shot_accounts = []
         self.accounts = {}
         self.inv_accounts = defaultdict(list)
         self.gov_account = InMemoryServer.open_account(self, "@government")
@@ -344,7 +344,7 @@ class InMemoryServer(Server):
         self.inv_accounts[account].append(id)
         return account
 
-    def delete_account(self, id: AccountId, account_uuid=None):
+    def delete_account(self, id: AccountId):
         if self.has_account(id):
             account = self.accounts[id]
             to_be_deleted = []
@@ -359,6 +359,22 @@ class InMemoryServer(Server):
             del self.inv_accounts[account][0]
 
             return True
+
+    def buy_gun(self, author: AccountId):
+        author_acc = self.get_account(author)
+        if self.can_transfer(author_acc, self.get_government_account(), self.gun_price):
+            author_acc.balance -= self.gun_price
+            self.get_government_account().balance += self.gun_price
+        author_acc.guns += 1
+
+    def shoot_account(self, author: AccountId, shooter: Account, victim: Account, timestamp=None):
+        assert shooter.guns > 0
+        shooter.guns -= 1
+        victim.shoot(timestamp=timestamp if timestamp is not None else time.time())
+        self.shot_accounts.append(victim)
+
+    def set_gun_price(self, author: AccountId, price):
+        self.gun_price = Fraction(price)
 
     def add_account_alias(self, account: Account, alias_id: AccountId):
         """Associates an additional ID with an account."""
@@ -494,12 +510,30 @@ class InMemoryAccount(Account):
         """Initializes an in-memory account."""
         self.uuid = account_uuid if account_uuid is not None else str(
             uuid.uuid4())
+        self.shot = False
+        self.comes_to_life_at = 0
+        self.guns = 0
         self.balance = 0
         self.frozen = False
         self.public = False
         self.auth = Authorization.CITIZEN
         self.public_keys = []
         self.proxies = set()
+
+    def shoot(self, timestamp=None):
+        timestamp = timestamp if timestamp is not None else time.time()
+        self.shot = True
+        self.comes_to_life_at = timestamp + 86400
+
+    def should_be_alive(self):
+        if not self.shot:
+            return not self.shot
+
+        if time.time() > self.comes_to_life_at:
+            self.shot = False
+            self.comes_to_life_at = 0
+            return True
+        return False
 
     def get_uuid(self):
         """Gets this account's unique identifier."""
@@ -530,7 +564,8 @@ class InMemoryAccount(Account):
 class InMemoryRecurringTransfer(RecurringTransfer):
     """An in-memory description of a recurring transfer."""
 
-    def __init__(self, author: AccountId, source: Account, destination: Account, total_amount, tick_count, remaining_amount, transfer_id=None):
+    def __init__(self, author: AccountId, source: Account, destination: Account, total_amount, tick_count,
+                 remaining_amount, transfer_id=None):
         """Initializes an in-memory recurring transfer."""
         self.uuid = transfer_id if transfer_id is not None else str(
             uuid.uuid4())
@@ -765,7 +800,7 @@ class TaxMan:
         for key in brackets:
             for account in self.server.list_accounts():
                 if self.server.get_account_id(account).startswith(
-                    tuple(self.tax_brackets[key].exempt_prefixes)): continue
+                        tuple(self.tax_brackets[key].exempt_prefixes)): continue
                 value += self.tax_brackets[key].get_tax(account)
 
         return value
@@ -778,7 +813,7 @@ class TaxMan:
                 i += 1
 
                 if self.server.get_account_id(account).startswith(
-                    tuple(self.tax_brackets[tax_bracket].exempt_prefixes)): continue
+                        tuple(self.tax_brackets[tax_bracket].exempt_prefixes)): continue
                 tax_amount = self.tax_brackets[tax_bracket].get_tax(account)
                 if tax_amount != 0:
                     self.server.transfer('@government', account, self.server.get_government_account(), tax_amount)
@@ -910,12 +945,19 @@ class LedgerServer(InMemoryServer):
                                                       int(elems[4]), str(elems[5]))
             elif cmd == 'remove-tax-bracket':
                 self.get_tax_object().remove_tax_bracket(elems[2])
+            elif cmd == "shoot-account":
+                super().shoot_account(parse_account_id(elems[1]), self.get_account_from_string(elems[2]), self.get_account_from_string(elems[3]), timestamp=timestamp)
+            elif cmd == "set-gun-price":
+                super().set_gun_price(parse_account_id(elems[1]), int(elems[2]))
+            elif cmd == "buy-gun":
+                super().buy_gun(parse_account_id(elems[1]))
             elif cmd == 'toggle-auto-tax':
                 self.get_tax_object().toggle_auto_tax()
             elif cmd == 'force-tax':
                 pass
             elif cmd == 'mark-public':
-                super().mark_public(parse_account_id(elems[1]), self.get_account_from_string(elems[2]), elems[3] == "True")
+                super().mark_public(parse_account_id(elems[1]), self.get_account_from_string(elems[2]),
+                                    elems[3] == "True")
 
             else:
                 raise Exception("Unknown ledger command '%s'." % cmd)
@@ -945,6 +987,30 @@ class LedgerServer(InMemoryServer):
             'add-alias',
             self.get_account_id(account),
             alias_id)
+
+    def shoot_account(self, author: AccountId, shooter: Account, victim: Account, timestamp=None):
+        super().shoot_account(author, shooter, victim, timestamp)
+        self._ledger_write(
+            'shoot-account',
+            author,
+            self.get_account_id(shooter),
+            self.get_account_id(victim)
+        )
+
+    def set_gun_price(self, author: AccountId, price):
+        super().set_gun_price(author, price)
+        self._ledger_write(
+            'set-gun-price',
+            author,
+            str(price)
+        )
+
+    def buy_gun(self, author: AccountId):
+        super().buy_gun(author)
+        self._ledger_write(
+            "buy-gun",
+            author
+        )
 
     def mark_public(self, author: AccountId, account: Account, new_public: bool):
         super().mark_public(author, account, new_public)

@@ -216,7 +216,7 @@ _add_command(
 def _leader_board(author: Union[AccountId, str], limit: Union[int, None], rest: str, server: Server):
     accounts = sorted(commands.list_public_accounts(author, server), key=lambda x: x.get_balance(), reverse=True)
     return '\n'.join(
-        [''.join(((f"{i+1:<3} | {':'.join(map(str, server.get_account_ids(acc))):<28}",
+        [''.join(((f"{i + 1:<3} | {':'.join(map(str, server.get_account_ids(acc))):<28}",
                    f" | {acc.get_authorization().name.lower():<9}",
                    f" | {_rounded(acc.get_balance()):>8}")))
          for i, acc in enumerate(accounts) if limit is None or i < limit])
@@ -230,7 +230,6 @@ _add_command(
     _leader_board,
     "view a list of all public accounts sorted by balance"
 )
-
 
 _alias('leader-board', 'lb')
 
@@ -694,6 +693,48 @@ _add_command(
     "Forcibly run ticks"
 )
 
+
+def _shoot_account(author: Union[AccountId, str], victim: Union[AccountId, str],
+                   rest: str, server: Server):
+    commands.shoot_account(author, author, victim, server)
+    print("I got far")
+    return {"response": f"Successfully shot {victim}", "to_be_muted": victim}
+
+
+_add_command(
+    'shoot',
+    {
+        'victim': (parse_account_id, "person to shoot")
+    },
+    _shoot_account,
+    "shoots Account"
+)
+
+
+def _set_gun_price(author: Union[AccountId, str], price: Fraction, rest, server):
+    commands.set_gun_price(author, price, server)
+    return f"Set price to {price}"
+
+
+_add_command(
+    'set-gun-price',
+    {
+        'price': (Fraction, "price for new guns")
+    },
+    _set_gun_price,
+    "Sets the price of a gun"
+)
+
+def _buy_gun(author: Union[AccountId, str], rest, server):
+    commands.buy_gun(author, server)
+    return "You bought a gun"
+
+_add_command(
+    "buy-gun",
+    {},
+    _buy_gun,
+    "buys a gun"
+)
 
 def _authorize(
         author: Union[AccountId, str],

@@ -116,6 +116,31 @@ def _is_signed_by(
 
 
 # COMMANDS
+def set_gun_price(author_id, new_val, server):
+    author = server.get_account(author_id)
+    _assert_authorized(author, None)
+    return server.set_gun_price(author_id, new_val)
+
+
+def shoot_account(author_id, shooter_id, victim_id, server):
+    shooter = server.get_account(shooter_id)
+
+    if shooter.guns <= 0:
+        raise ValueError("Not enough guns")
+    try:
+        victim = server.get_account(victim_id)
+    except:
+        raise ValueError("Victim does not have an account")
+    print(shooter.guns)
+    server.shoot_account(author_id, shooter, victim)
+
+
+def buy_gun(author_id, server):
+    try:
+        return server.buy_gun(author_id)
+    except Exception:
+        raise ValueError("Not enough funds")
+
 def name(
         author_id: Union[AccountId, str],
         server: Server):
