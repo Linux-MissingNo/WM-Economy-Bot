@@ -319,7 +319,7 @@ class Server(object):
 
 
 class FarmType(object):
-    def __init__(self, cost, returns_per_day, name="Farm", days=30):
+    def __init__(self, cost, returns_per_day, name="Farm", days=60):
         self.cost = cost
         self.returns_per_day = returns_per_day
         self.name = name
