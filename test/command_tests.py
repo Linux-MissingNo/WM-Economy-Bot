@@ -412,6 +412,24 @@ class CommandTests(unittest.TestCase):
                 server.delete_account(admin_id, citizen_id)
                 server.delete_account(admin_id, admin_id)
 
+            """test farm limit"""
+            citizen_id = RedditAccountId("gamingdiamond982")
+            admin_id = RedditAccountId("admin")
+            admin_acc = server.open_account(admin_id)
+            citizen_acc = server.open_account(citizen_id)
+            server.authorize(admin_id, admin_acc, Authorization.ADMIN)
+            server.authorize(admin_id, citizen_acc, Authorization.CITIZEN)
+            server.remove_funds(admin_id, citizen_acc, 25)
+            server.remove_funds(admin_id, admin_acc, 25)
+            server.remove_funds(admin_id, server.get_government_account(), 25)
+            farm_type_name = list(server.farm_types.keys())[0]
+            farm_type = server.farm_types[farm_type_name]
+            server.print_money(admin_id, citizen_acc, farm_type.cost * (server.farm_limit + 1))
+            for i in range(server.farm_limit + 1):
+                run_command_stream(server, (citizen_id, f"buy-farm {farm_type_name}"))
+            self.assertEqual(len(citizen_acc.farms), server.farm_limit)
+
+
     def test_name_command(self):
         """Tests that the name command returns an account's name."""
         for server in create_test_servers():
