@@ -318,12 +318,52 @@ class Server(object):
                not destination.is_frozen()
 
 
+class FarmType(object):
+    def __init__(self, cost, returns_per_day, name="Farm", days=30):
+        self.cost = cost
+        self.returns_per_day = returns_per_day
+        self.name = name
+        self.days = days
+
+
+class Farm(object):
+    def __init__(self, type: FarmType, owner: Account, server: Server):
+        self.type = type
+        self.server = server
+        self.returns = type.returns_per_day
+        self.ticks_left = type.days*2
+        self.owner = owner
+        if len(self.owner.farms) < self.server.farm_limit:
+            self.owner.farms.append(self)
+            self.server.farms.append(self)
+        else:
+            raise Exception("Farm Limit already reached")
+
+
+    def tick(self):
+        if self.ticks_left > 0:
+            self.owner.balance += (self.returns/2)
+            self.server.get_government_account().balance -= (self.returns/2)
+            self.ticks_left -= 1
+
+        if self.ticks_left <= 0:
+            self.owner.farms.remove(self)
+            self.server.farms.remove(self)
+
+
 class InMemoryServer(Server):
     """A server that maintains accounts in memory. Nothing is persistent.
        This server implementation can be used to implement more sophisticated
        (persistent) servers."""
 
     def __init__(self):
+        self.farm_types = {
+            "wheat-farm": FarmType(Fraction(100), Fraction(5), "wheat-farm"),
+            "potato-farm": FarmType(Fraction(300), Fraction(15), "potato-farm"),
+            "banana-farm": FarmType(Fraction(500), Fraction(25), "banana-farm")
+        }
+        self.farm_limit = 3
+        self.farms = []
         self.gun_price = Fraction(500)
         self.vest_price = Fraction(200)
         self.shot_accounts = []
@@ -332,7 +372,6 @@ class InMemoryServer(Server):
         self.gov_account = InMemoryServer.open_account(self, "@government")
         self.gov_account.auth = Authorization.DEVELOPER
         self.recurring_transfers = {}
-
 
     def open_account(self, id: AccountId, account_uuid=None):
         """Opens an empty account with a particular ID. Raises an exception if the account
@@ -345,21 +384,51 @@ class InMemoryServer(Server):
         self.inv_accounts[account].append(id)
         return account
 
-    def delete_account(self, id: AccountId):
-        if self.has_account(id):
-            account = self.accounts[id]
+    def delete_account(self, author: AccountId, account_id: AccountId):
+        if self.has_account(account_id):
+            account = self.accounts[account_id]
             to_be_deleted = []
             for rec_transfer in self.recurring_transfers:
-                if self.recurring_transfers[rec_transfer].get_destination() == account or self.recurring_transfers[rec_transfer].get_source() == account:
+                if self.recurring_transfers[rec_transfer].get_destination() == account or self.recurring_transfers[
+                        rec_transfer].get_source() == account:
                     to_be_deleted.append(rec_transfer)
 
             for key in to_be_deleted:
                 del self.recurring_transfers[key]
 
-            del self.accounts[id]
+            del self.accounts[account_id]
             del self.inv_accounts[account][0]
-
             return True
+
+    def buy_farm(self, author_id: AccountId, farm_name):
+        author_acc = self.get_account(author_id)
+        if farm_name in self.farm_types:
+            if self.can_transfer(author_acc, self.get_government_account(), self.farm_types[farm_name].cost):
+                author_acc.balance -= self.farm_types[farm_name].cost
+                self.get_government_account().balance += self.farm_types[farm_name].cost
+                Farm(self.farm_types[farm_name], author_acc, self)
+            else:
+                raise Exception(f"Cannot perform transfer")
+        else:
+            raise Exception(f"{farm_name} is not a valid farm type")
+
+    def set_farm_type_cost(self, author: AccountId, farm_name: str, new_cost: Fraction):
+        if farm_name in self.farm_types:
+            self.farm_types[farm_name].cost = new_cost
+        else:
+            raise Exception(f"{farm_name} is not a valid farm type")
+
+    def set_farm_type_duration(self, author: AccountId, farm_name: str, new_duration: int):
+        if farm_name in self.farm_types:
+            self.farm_types[farm_name].days = new_duration
+        else:
+            raise Exception(f'{farm_name} is not a valid farm type')
+
+    def set_farm_type_returns(self, author: AccountId, farm_name: str, new_returns: Fraction):
+        if farm_name in self.farm_types:
+            self.farm_types[farm_name].returns_per_day = new_returns
+        else:
+            raise Exception(f'{farm_name} is not a valid farm type')
 
     def buy_gun(self, author: AccountId):
         author_acc = self.get_account(author)
@@ -516,6 +585,8 @@ class InMemoryServer(Server):
         # Delete finished transfers.
         for id in finished_transfers:
             del self.recurring_transfers[id]
+        for farm in self.farms:
+            farm.tick()
 
     def perform_recurring_transfer(self, transfer, amount):
         InMemoryServer.transfer(
@@ -534,6 +605,7 @@ class InMemoryAccount(Account):
         """Initializes an in-memory account."""
         self.uuid = account_uuid if account_uuid is not None else str(
             uuid.uuid4())
+        self.farms = []
         self.shot = False
         self.comes_to_life_at = 0
         self.guns = 0
@@ -964,20 +1036,29 @@ class LedgerServer(InMemoryServer):
                 self.last_tick_timestamp = timestamp
                 self.taxObject.tick(True)
             elif cmd == 'delete-account':
-                super().delete_account(elems[2])
+                super().delete_account(parse_account_id(elems[1]), parse_account_id(elems[2]))
             elif cmd == 'add-tax-bracket':
                 self.get_tax_object().add_tax_bracket(int(elems[2]), int(elems[3]) if elems[3] != "None" else None,
                                                       int(elems[4]), str(elems[5]))
             elif cmd == 'remove-tax-bracket':
                 self.get_tax_object().remove_tax_bracket(elems[2])
             elif cmd == "shoot-account":
-                super().shoot_account(parse_account_id(elems[1]), self.get_account_from_string(elems[2]), self.get_account_from_string(elems[3]), timestamp=timestamp)
+                super().shoot_account(parse_account_id(elems[1]), self.get_account_from_string(elems[2]),
+                                      self.get_account_from_string(elems[3]), timestamp=timestamp)
             elif cmd == "set-gun-price":
-                super().set_gun_price(parse_account_id(elems[1]), int(elems[2]))
+                super().set_gun_price(parse_account_id(elems[1]), Fraction(elems[2]))
             elif cmd == "buy-gun":
                 super().buy_gun(parse_account_id(elems[1]))
             elif cmd == "buy-vest":
                 super().buy_vest(parse_account_id(elems[1]))
+            elif cmd == "buy-farm":
+                super().buy_farm(parse_account_id(elems[1]), elems[2])
+            elif cmd == "set-farm-cost":
+                super().set_farm_type_cost(parse_account_id(elems[1]), elems[2], Fraction(elems[3]))
+            elif cmd == "set-farm-duration":
+                super().set_farm_type_duration(parse_account_id(elems[1]), elems[2], int(elems[3]))
+            elif cmd == "set-farm-returns":
+                super().set_farm_type_returns(parse_account_id(elems[1]), elems[2], Fraction(elems[3]))
             elif cmd == 'toggle-auto-tax':
                 self.get_tax_object().toggle_auto_tax()
             elif cmd == 'force-tax':
@@ -1031,6 +1112,41 @@ class LedgerServer(InMemoryServer):
             'set-gun-price',
             author,
             str(price)
+        )
+
+    def buy_farm(self, author_id: AccountId, farm_name):
+        super().buy_farm(author_id, farm_name)
+        self._ledger_write(
+            'buy-farm',
+            author_id,
+            farm_name
+        )
+
+    def set_farm_type_cost(self, author: AccountId, farm_name: str, new_cost: Fraction):
+        super().set_farm_type_cost(author, farm_name, new_cost)
+        self._ledger_write(
+            "set-farm-cost",
+            author,
+            farm_name,
+            new_cost
+        )
+
+    def set_farm_type_duration(self, author: AccountId, farm_name: str, new_duration: int):
+        super().set_farm_type_duration(author, farm_name, new_duration)
+        self._ledger_write(
+            "set-farm-duration",
+            author,
+            farm_name,
+            new_duration
+        )
+
+    def set_farm_type_returns(self, author: AccountId, farm_name: str, new_returns: Fraction):
+        super().set_farm_type_returns(author, farm_name, new_returns)
+        self._ledger_write(
+            "set-farm-returns",
+            author,
+            farm_name,
+            new_returns
         )
 
     def buy_gun(self, author: AccountId):
@@ -1094,7 +1210,7 @@ class LedgerServer(InMemoryServer):
         return result
 
     def delete_account(self, author: AccountId, account: AccountId):
-        result = super().delete_account(account)
+        result = super().delete_account(author, account)
         self._ledger_write(
             'delete-account',
             author,
@@ -1177,7 +1293,7 @@ class LedgerServer(InMemoryServer):
         super().remove_funds(author, account, amount)
         self._ledger_write(
             'remove-funds',
-            self.get_account_id(author),
+            author,
             self.get_account_id(account),
             amount
         )

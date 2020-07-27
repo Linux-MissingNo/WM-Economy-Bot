@@ -806,9 +806,86 @@ _add_command(
     "vest-balance",
     {},
     _vest_balance,
-    "displays wether or not you have a vest"
+    "displays whether or not you have a vest"
 )
 _alias("vest-balance", "vest-bal")
+
+
+def _buy_farm(author_id, farm_name, rest, server):
+    commands.buy_farm(author_id, farm_name, server)
+    return f"Successfully bought {farm_name}"
+
+
+_add_command(
+    "buy-farm",
+    {"farm-type": (str, "Type of the farm you want to buy")},
+    _buy_farm,
+    "Buys a farm"
+)
+
+
+def _set_farm_type_cost(author_id: AccountId, farm_name: str, new_cost: Fraction, rest, server):
+    commands.set_farm_cost(author_id, farm_name, new_cost, server)
+    return f"{farm_name} now costs {new_cost}"
+
+
+_add_command(
+    "set-farm-type-cost",
+    {
+        "farm-type": (str, "Type of the farm you want to change the cost of"),
+        "new-cost": (Fraction, "The new cost of the farm")
+    },
+    _set_farm_type_cost,
+    "Sets the cost of a type of farm"
+)
+
+
+def _set_farm_type_duration(author_id: AccountId, farm_name: str, new_duration: int, rest, server):
+    commands.set_farm_duration(author_id, farm_name, new_duration, server)
+    return f"{farm_name} now lasts for {new_duration} days"
+
+
+_add_command(
+    "set-farm-type-duration",
+    {
+        "farm-type": (str, "Type of farm you want to change the duration of"),
+        "new-duration": (int, "New duration for that Farm Type")
+    },
+    _set_farm_type_duration,
+    "Sets the duration of a given farm type"
+)
+
+
+def _set_farm_type_returns(author_id, farm_name, new_returns, rest, server):
+    commands.set_farm_type_returns(author_id, farm_name, new_returns, server)
+    return f"{farm_name} now returns {new_returns}/day"
+
+
+_add_command(
+    "set-farm-type-returns",
+    {
+        "farm-type": (str, "Type of the farm you want to change the returns of"),
+        "new-returns": (Fraction, "The new returns")
+    },
+    _set_farm_type_returns,
+    "Sets the returns per day for a given farm type"
+)
+
+
+def _farm_balance(author, rest, server):
+    account = author
+    if rest != "":
+        account = parse_account_id(rest.split()[0])
+    balance = commands.get_farm_balance(author, account, server)
+    return f"Your inventory contains ".join(f"{farm.type.name}, " for farm in balance) if len(balance) > 0 else f"Your inventory is empty"
+
+
+_add_command(
+    "farm-balance",
+    {},
+    _farm_balance,
+    "displays your farms"
+)
 
 
 def _authorize(

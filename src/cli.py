@@ -12,8 +12,8 @@ _name = "taubot CLI"
 def ps1(acc='taubot'):
     return f'{acc}> '
 
-# cant_run = ["shoot"]
-cant_run = []
+cant_run = ["shoot"]
+
 def cli(fp, acc):
     with LedgerServer(fp) as server:
         print(f"{_name} ver {_ver}")

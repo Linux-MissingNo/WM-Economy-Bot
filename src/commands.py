@@ -122,6 +122,38 @@ def set_gun_price(author_id, new_val, server):
     return server.set_gun_price(author_id, new_val)
 
 
+def buy_farm(author_id, farm_name, server):
+    try:
+        server.buy_farm(author_id, farm_name)
+    except Exception as e:
+        raise ValueError(e)
+
+
+def set_farm_type_cost(author_id: AccountId, farm_name: str, new_cost: Fraction, server):
+    author = _get_account(author_id, server)
+    _assert_authorized(author, None)
+    return server.set_farm_type_cost(author_id, farm_name, new_cost)
+
+
+def set_farm_type_duration(author_id: AccountId, farm_name: str, new_duration: int, server):
+    author = _get_account(author_id, server)
+    _assert_authorized(author, None)
+    return server.set_farm_type_duration(author_id, farm_name, new_duration)
+
+
+def set_farm_type_returns(author_id: AccountId, farm_name: str, new_returns: Fraction, server):
+    author = _get_account(author_id, server)
+    _assert_authorized(author, None)
+    return server.set_farm_type_returns(author_id, farm_name, new_returns)
+
+
+def get_farm_balance(author_id, account_id, server):
+    author = _get_account(author_id, server)
+    account = _get_account(account_id, server)
+    _assert_authorized(author, account)
+    return account.farms
+
+
 def set_vest_price(author_id, new_val, server):
     author = _get_account(author_id, server)
     _assert_authorized(author, None)

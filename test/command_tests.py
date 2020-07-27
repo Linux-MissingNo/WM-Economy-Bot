@@ -2,6 +2,7 @@
 
 import sys
 from os import path, remove
+
 sys.path.append(path.join(path.dirname(
     path.dirname(path.abspath(__file__))), 'src'))
 
@@ -12,10 +13,12 @@ from typing import Sequence
 from base64 import b64encode
 import unittest
 
+
 def run_all(elements, action):
     """Runs an action on every element of a list."""
     for item in elements:
         action(item)
+
 
 def run_command_stream(server, *commands):
     """Runs a sequence of commands (formatted as author, command pairs) on a server."""
@@ -23,6 +26,7 @@ def run_command_stream(server, *commands):
     for (author, cmd) in commands:
         responses.append(run_command(author, cmd, server))
     return responses
+
 
 def create_test_servers() -> Sequence[Server]:
     """Creates a sequence of test servers."""
@@ -52,7 +56,7 @@ class ServerTests(unittest.TestCase):
         for server in create_test_servers():
             self.assertFalse(server.has_account(RedditAccountId('taubot')))
             account = server.open_account(RedditAccountId('taubot'))
-            self.assertEqual(account.get_balance(), 0)
+            self.assertEqual(account.get_balance(), 25)
 
 
 class CommandTests(unittest.TestCase):
@@ -362,6 +366,52 @@ class CommandTests(unittest.TestCase):
             # Ensure that the accounts weren't linked.
             self.assertNotIn(other_id, server.get_account_ids(admin))
 
+    def test_farms(self):
+        """Tests farms"""
+        for server in create_test_servers():
+            for farm in server.farm_types:
+                farm_type = server.farm_types[farm]
+                citizen_id = RedditAccountId("gamingdiamond982")
+                admin_id = RedditAccountId("admin")
+                admin_acc = server.open_account(admin_id)
+                citizen_acc = server.open_account(citizen_id)
+                server.authorize(admin_id, admin_acc, Authorization.ADMIN)
+                server.authorize(admin_id, citizen_acc, Authorization.CITIZEN)
+                server.remove_funds(admin_id, citizen_acc, 25)
+                server.remove_funds(admin_id, admin_acc, 25)
+                server.remove_funds(admin_id, server.get_government_account(), 25)
+                """Test purchasing farms with insufficient funds"""
+                run_command_stream(server, (citizen_id, f"buy-farm {farm}"))
+                self.assertEqual(len(citizen_acc.farms), 0)
+
+                """Test purchasing farms with sufficient funds"""
+                server.print_money(admin_id, citizen_acc, farm_type.cost)
+                run_command_stream(server, (citizen_id, f"buy-farm {farm}"))
+                self.assertEqual(0, citizen_acc.get_balance())
+                self.assertEqual(farm_type.cost, server.get_government_account().get_balance())
+
+                """Test balance changes over time"""
+                for i in range(farm_type.days):
+                    gov_bal = server.get_government_account().get_balance()
+                    citizen_bal = citizen_acc.get_balance()
+                    server.notify_tick_elapsed()
+                    server.notify_tick_elapsed()  # two ticks is equal to one day
+                    self.assertEqual(server.get_government_account().get_balance(), gov_bal - farm_type.returns_per_day)
+                    self.assertEqual(citizen_acc.get_balance(), citizen_bal + farm_type.returns_per_day)
+
+                """Test farm deletion"""
+                citizen_bal = citizen_acc.get_balance()
+                gov_bal = server.get_government_account().get_balance()
+                self.assertEqual(len(citizen_acc.farms), 0)
+                server.notify_tick_elapsed()
+                self.assertEqual(gov_bal, server.get_government_account().get_balance())
+                self.assertEqual(citizen_bal, citizen_acc.get_balance())
+                """Clean up server for next farm tests"""
+                server.remove_funds(admin_id, server.get_government_account(),
+                                    server.get_government_account().get_balance() - 25)
+                server.delete_account(admin_id, citizen_id)
+                server.delete_account(admin_id, admin_id)
+
     def test_name_command(self):
         """Tests that the name command returns an account's name."""
         for server in create_test_servers():
@@ -421,6 +471,7 @@ class CommandTests(unittest.TestCase):
             run_command_stream(server, (alias_id, 'proxy admin \n\n transfer 20 general-kenobi'))[0]
             self.assertEqual(admin.get_balance(), 180)
             self.assertEqual(alias.get_balance(), 20)
+
 
 if __name__ == '__main__':
     unittest.main()
