@@ -631,7 +631,7 @@ _add_command(
         'start': (Fraction, "Lower bound of the tax bracket"),
         'end': (Fraction, "Upper bound of the tax bracker (-1 for infinity)"),
         'rate': (Fraction, "Tax rate"),
-        'name': (Fraction, "Name of the tax bracket")
+        'name': (str, "Name of the tax bracket")
     },
     _add_tax_bracket,
     "Add a tax bracket"
@@ -639,7 +639,7 @@ _add_command(
 _add_command(
     'remove-tax-bracket',
     {
-        'name': (Fraction, "Name of the bracket to delete")
+        'name': (str, "Name of the bracket to delete")
     },
     _remove_tax_bracket,
     "Removes a tax bracker"
