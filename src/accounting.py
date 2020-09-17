@@ -312,6 +312,7 @@ class Server(object):
     def can_transfer(self, source: Account, destination: Account, amount: Fraction) -> bool:
         """Tells if a particular amount of money can be transferred from one account on this
            server to another. `destination` and `amount` are both `Account` objects."""
+
         return amount > 0 and \
                source.get_balance() - amount >= 0 and \
                not source.is_frozen() and \
@@ -560,6 +561,8 @@ class InMemoryServer(Server):
            many ticks. The transfer is authorized by `author` and consists of `total_amount` being
            transferred from `source` to `destination` over the course of `tick_count` ticks. A tick
            is a server-defined timespan."""
+        if tick_count == 0:
+            return
         rec_transfer = InMemoryRecurringTransfer(author, source, destination, total_amount, tick_count, total_amount,
                                                  transfer_id)
         self.recurring_transfers[rec_transfer.get_id()] = rec_transfer
@@ -586,6 +589,7 @@ class InMemoryServer(Server):
         for id in finished_transfers:
             del self.recurring_transfers[id]
         for farm in self.farms:
+            print(farm)
             farm.tick()
 
     def perform_recurring_transfer(self, transfer, amount):
@@ -1035,6 +1039,8 @@ class LedgerServer(InMemoryServer):
             elif cmd == 'tick':
                 self.last_tick_timestamp = timestamp
                 self.taxObject.tick(True)
+                for farm in self.farms:
+                    farm.tick()
             elif cmd == 'delete-account':
                 super().delete_account(parse_account_id(elems[1]), parse_account_id(elems[2]))
             elif cmd == 'add-tax-bracket':
@@ -1047,10 +1053,16 @@ class LedgerServer(InMemoryServer):
                                       self.get_account_from_string(elems[3]), timestamp=timestamp)
             elif cmd == "set-gun-price":
                 super().set_gun_price(parse_account_id(elems[1]), Fraction(elems[2]))
+            elif cmd == "set-vest-price":
+                super().set_vest_price(parse_account_id(elems[1]), Fraction(elems[2]))
             elif cmd == "buy-gun":
                 super().buy_gun(parse_account_id(elems[1]))
             elif cmd == "buy-vest":
-                super().buy_vest(parse_account_id(elems[1]))
+                try:
+                    super().buy_vest(parse_account_id(elems[1]))
+                except Exception as e:
+                    print(f'failed at line {line_num + 1}')
+                    raise e
             elif cmd == "buy-farm":
                 super().buy_farm(parse_account_id(elems[1]), elems[2])
             elif cmd == "set-farm-cost":

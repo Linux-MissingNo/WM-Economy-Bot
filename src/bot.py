@@ -105,7 +105,10 @@ async def tick_loop(server):
                 break
             id = int(server.get_account_id(account).strip("discord/"))
             if account.should_be_alive():
-                await unmute_account(id)
+                try:
+                    await unmute_account(id)
+                except:
+                    pass
                 server.shot_accounts.remove(account)
         while int(time.time() - server.last_tick_timestamp) > tick_duration:
             server.notify_tick_elapsed(server.last_tick_timestamp + tick_duration)
@@ -266,6 +269,8 @@ if __name__ == '__main__':
 
     @discord_client.event
     async def on_message(message: discord.Message):
+        if message.guild.id != primary_guild_id:
+            return
         if message.author == discord_client.user:
             return
         global config_prefix
