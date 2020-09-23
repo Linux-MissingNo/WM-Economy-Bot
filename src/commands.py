@@ -100,6 +100,7 @@ def _is_signed_by(
     """Check whether account has signed message with signature"""
     try:
         signature = base64.b64decode(signature)
+        signature = base64.b64decode(signature)
     except Exception:
         raise ValueCommandException(signature)
 
