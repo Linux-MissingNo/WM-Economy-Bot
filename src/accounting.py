@@ -452,9 +452,10 @@ class InMemoryServer(Server):
             raise Exception("Not Enough funds")
 
     def shoot_account(self, author: AccountId, shooter: Account, victim: Account, timestamp=None):
+
         if shooter.guns < 0:
             raise Exception("Not enough guns")
-        if victim.get_authorization() > Authorization.DEVELOPER:
+        if victim.get_authorization() >= Authorization.DEVELOPER:
             raise Exception("Victim cannot be shot")
         shooter.guns -= 1
         if victim.has_vest:
