@@ -1052,8 +1052,11 @@ class LedgerServer(InMemoryServer):
             elif cmd == 'remove-tax-bracket':
                 self.get_tax_object().remove_tax_bracket(elems[2])
             elif cmd == "shoot-account":
-                super().shoot_account(parse_account_id(elems[1]), self.get_account_from_string(elems[2]),
-                                      self.get_account_from_string(elems[3]), timestamp=timestamp)
+                try:
+                    super().shoot_account(parse_account_id(elems[1]), self.get_account_from_string(elems[2]),
+                                          self.get_account_from_string(elems[3]), timestamp=timestamp)
+                except Exception:
+                    pass
             elif cmd == "set-gun-price":
                 super().set_gun_price(parse_account_id(elems[1]), Fraction(elems[2]))
             elif cmd == "set-vest-price":
