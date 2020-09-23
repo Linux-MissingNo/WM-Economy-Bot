@@ -405,9 +405,9 @@ class InMemoryServer(Server):
         author_acc = self.get_account(author_id)
         if farm_name in self.farm_types:
             if self.can_transfer(author_acc, self.get_government_account(), self.farm_types[farm_name].cost):
+                Farm(self.farm_types[farm_name], author_acc, self)
                 author_acc.balance -= self.farm_types[farm_name].cost
                 self.get_government_account().balance += self.farm_types[farm_name].cost
-                Farm(self.farm_types[farm_name], author_acc, self)
             else:
                 raise Exception(f"Cannot perform transfer")
         else:
