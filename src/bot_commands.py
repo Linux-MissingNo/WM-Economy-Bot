@@ -700,8 +700,7 @@ def _shoot_account(author: Union[AccountId, str], victim: Union[AccountId, str],
         was_shot = commands.shoot_account(author, author, victim, server)
     except Exception as e:
         print(1)
-        return f"You tried to shoot {victim} but they dodged\n" \
-               f"Because of your shot they where inconvenienced"
+        return f"You tried to shoot {victim} but they dodged"
 
     if was_shot:
         return {"response": f"Successfully shot {victim}", "to_be_muted": victim}
