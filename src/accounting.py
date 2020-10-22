@@ -312,11 +312,11 @@ class Server(object):
     def can_transfer(self, source: Account, destination: Account, amount: Fraction) -> bool:
         """Tells if a particular amount of money can be transferred from one account on this
            server to another. `destination` and `amount` are both `Account` objects."""
-
         return amount > 0 and \
                source.get_balance() - amount >= 0 and \
                not source.is_frozen() and \
-               not destination.is_frozen()
+               not destination.is_frozen() or not self.ready
+
 
 
 class FarmType(object):
@@ -363,6 +363,7 @@ class InMemoryServer(Server):
             "potato-farm": FarmType(Fraction(300), Fraction(15), "potato-farm"),
             "banana-farm": FarmType(Fraction(500), Fraction(25), "banana-farm")
         }
+        self.ready = False
         self.farm_limit = 3
         self.farms = []
         self.gun_price = Fraction(500)
@@ -460,11 +461,9 @@ class InMemoryServer(Server):
         shooter.guns -= 1
         if victim.has_vest:
             victim.has_vest = False
-            print("False")
             return False
         victim.shoot(timestamp=timestamp if timestamp is not None else time.time())
         self.shot_accounts.append(victim)
-        print("True")
         return True
 
     def set_gun_price(self, author: AccountId, price):
@@ -1059,9 +1058,11 @@ class LedgerServer(InMemoryServer):
                     pass
             elif cmd == "set-gun-price":
                 super().set_gun_price(parse_account_id(elems[1]), Fraction(elems[2]))
+                print(f"gun price changed at {line_num + 1}")
             elif cmd == "set-vest-price":
                 super().set_vest_price(parse_account_id(elems[1]), Fraction(elems[2]))
             elif cmd == "buy-gun":
+                print(f"gun bought at line {line_num + 1}")
                 super().buy_gun(parse_account_id(elems[1]))
             elif cmd == "buy-vest":
                 try:
@@ -1087,6 +1088,7 @@ class LedgerServer(InMemoryServer):
 
             else:
                 raise Exception("Unknown ledger command '%s'." % cmd)
+        self.ready = True
 
     def _ledger_write(self, *args, t=None):
         if t is None:

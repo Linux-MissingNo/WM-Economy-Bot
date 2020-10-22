@@ -103,7 +103,10 @@ async def tick_loop(server):
         for account in server.shot_accounts:
             if not discord_client.is_ready():
                 break
-            id = int(server.get_account_id(account).strip("discord/"))
+            try:
+                id = int(server.get_account_id(account).strip("discord/"))
+            except:
+                continue
             if account.should_be_alive():
                 try:
                     await unmute_account(id)
